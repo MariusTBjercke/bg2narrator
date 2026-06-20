@@ -1,0 +1,17 @@
+{
+  "ApiKey": "",
+  "DefaultVoiceId": "21m00Tcm4TlvDq8ikWAM",
+  "ModelId": "eleven_flash_v2_5",
+  "SpeechSpeed": 1.0,
+  "Volume": 1.0,
+  "OnlyUnvoicedLines": true,
+  "VerboseLogging": false,
+  "LanguageFolder": "en_US",
+  "VoiceMappings": [
+    {
+      "Speaker": "Renal Bloodscalp",
+      "VoiceId": "21m00Tcm4TlvDq8ikWAM",
+      "Speed": 1.0
+    }
+  ]
+}

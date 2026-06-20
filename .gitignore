@@ -1,0 +1,41 @@
+# Build results
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+artifacts/
+src/NarratorSvc/deploy/
+
+# Visual Studio / Rider
+.vs/
+.idea/
+_ReSharper*/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.rsuser
+*.DotSettings.user
+
+# NuGet
+*.nupkg
+packages/
+
+# WeiDU local install artifacts
+weidu_external/
+setup-BG2Narrator.exe
+
+# Runtime / local test data
+**/settings.json
+**/events.jsonl
+**/ipc_last_seq.txt
+**/ipc_probe.txt
+BG2Narrator/cache/
+**/BG2Narrator/cache/
+**/cache/**/*.mp3
+**/cache/**/*.wav
+**/cache/manifest.json
+
+*.log
+*.debug
+

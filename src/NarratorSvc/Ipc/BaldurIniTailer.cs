@@ -14,9 +14,7 @@ namespace NarratorSvc.Ipc
     /// </summary>
     internal sealed class BaldurIniTailer : IDisposable
     {
-        private static readonly Regex ProfileEntry = new Regex(
-            @"SetPrivateProfileString\('PSTNarrator','([^']+)',(?:'((?:\\'|[^'])*)'|\[\[(.*?)\]\])\)",
-            RegexOptions.Compiled | RegexOptions.Singleline);
+        private readonly Regex _profileEntry;
 
         private const int StaleBaselineThreshold = 8;
 
@@ -28,8 +26,20 @@ namespace NarratorSvc.Ipc
         private int _lastSeq = -1;
         private bool _primed;
 
-        public BaldurIniTailer(string baldurLuaPath, string modDataFolder, NarratorService narrator)
+        public BaldurIniTailer(
+            string baldurLuaPath,
+            string modDataFolder,
+            NarratorService narrator,
+            string profileSection = "PSTNarrator")
         {
+            if (string.IsNullOrWhiteSpace(profileSection))
+            {
+                profileSection = "PSTNarrator";
+            }
+
+            _profileEntry = new Regex(
+                @"SetPrivateProfileString\('" + Regex.Escape(profileSection.Trim()) + @"','([^']+)',(?:'((?:\\'|[^'])*)'|\[\[(.*?)\]\])\)",
+                RegexOptions.Compiled | RegexOptions.Singleline);
             _baldurLuaPath = baldurLuaPath;
             _ipcStatePath = Path.Combine(modDataFolder, "ipc_last_seq.txt");
             _narrator = narrator;
@@ -53,7 +63,7 @@ namespace NarratorSvc.Ipc
                 string content = File.ReadAllText(_baldurLuaPath);
                 var slots = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-                foreach (Match match in ProfileEntry.Matches(content))
+                foreach (Match match in _profileEntry.Matches(content))
                 {
                     string key = match.Groups[1].Value;
                     string value = match.Groups[2].Success
@@ -221,12 +231,25 @@ namespace NarratorSvc.Ipc
             return value.Replace("\\'", "'");
         }
 
-        public static string ResolveDefaultBaldurLuaPath()
+        public static string ResolvePstBaldurLuaPath()
         {
             return Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
                 "Planescape Torment - Enhanced Edition",
                 "Baldur.lua");
+        }
+
+        public static string ResolveBg2BaldurLuaPath()
+        {
+            return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                "Baldur's Gate II - Enhanced Edition",
+                "Baldur.lua");
+        }
+
+        public static string ResolveDefaultBaldurLuaPath()
+        {
+            return ResolvePstBaldurLuaPath();
         }
     }
 }

@@ -1,8 +1,8 @@
 BACKUP ~weidu_external/BG2Narrator/backup~
 AUTHOR ~micro~
-VERSION ~v0.1.0~
+VERSION ~v0.1.1~
 
-BEGIN ~BG2 Narrator v0.1.0~
+BEGIN ~BG2 Narrator v0.1.1~
 REQUIRE_PREDICATE GAME_IS ~bg2ee eet~ ~BG2 Narrator currently targets BG2:EE / EET.~
 REQUIRE_PREDICATE FILE_EXISTS_IN_GAME ~M___EEex.lua~ ~BG2 Narrator requires EEex to be installed first.~
 

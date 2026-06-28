@@ -35,12 +35,11 @@ namespace NarratorSvc
             Narrator = new NarratorService(this);
             EventTailer = new EventTailer(EventsPath, Narrator);
 
-            if (IsPstNarrator)
-            {
-                string baldurLuaPath = BaldurIniTailer.ResolveDefaultBaldurLuaPath();
-                BaldurIniTailer = new BaldurIniTailer(baldurLuaPath, DataFolder, Narrator);
-                BaldurLuaPath = baldurLuaPath;
-            }
+            string baldurLuaPath = IsPstNarrator
+                ? BaldurIniTailer.ResolvePstBaldurLuaPath()
+                : BaldurIniTailer.ResolveBg2BaldurLuaPath();
+            BaldurIniTailer = new BaldurIniTailer(baldurLuaPath, DataFolder, Narrator, ModFolderName);
+            BaldurLuaPath = baldurLuaPath;
         }
 
         public string GameFolder { get; }

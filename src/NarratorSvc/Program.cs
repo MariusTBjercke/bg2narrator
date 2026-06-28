@@ -25,7 +25,7 @@ namespace NarratorSvc
                 Console.WriteLine(logPrefix + " Watching " + context.EventsPath);
                 if (!string.IsNullOrWhiteSpace(context.BaldurLuaPath))
                 {
-                    Console.WriteLine(logPrefix + " Watching " + context.BaldurLuaPath + " (PST ini IPC)");
+                    Console.WriteLine(logPrefix + " Watching " + context.BaldurLuaPath + " (Baldur.lua IPC)");
                 }
                 Console.WriteLine(logPrefix + " Settings " + context.SettingsPath);
                 Console.WriteLine(logPrefix + " Press Ctrl+C to exit.");

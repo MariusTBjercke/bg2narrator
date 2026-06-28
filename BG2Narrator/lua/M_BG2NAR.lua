@@ -4,13 +4,18 @@ if not EEex_Active then
 end
 
 print("[BG2Narrator] M_BG2NAR.lua loaded")
+print(string.format(
+	"[BG2Narrator] ipc probe: io.open=%s Infinity_SetINIValue=%s",
+	tostring(io ~= nil and io.open ~= nil),
+	tostring(Infinity_SetINIValue ~= nil)
+))
 
 -- Drop globals left by older BG2Narrator versions in the same EEex session.
 BG2Narrator_OnAnyUiItemRender = nil
 BG2Narrator_OnAnyListItemRender = nil
 
 BG2Narrator = BG2Narrator or {}
-BG2Narrator.version = "0.1.0"
+BG2Narrator.version = "0.1.1"
 BG2Narrator.logPath = BG2Narrator.logPath or "BG2Narrator.log"
 BG2Narrator.eventsPath = BG2Narrator.eventsPath or "BG2Narrator/events.jsonl"
 
@@ -36,6 +41,20 @@ BG2Narrator.lastDialogTarget = BG2Narrator.lastDialogTarget or ""
 BG2Narrator.dialogueGeneration = BG2Narrator.dialogueGeneration or 0
 BG2Narrator.pendingSpeakId = BG2Narrator.pendingSpeakId or ""
 BG2Narrator.voObserverUntil = BG2Narrator.voObserverUntil or 0
+BG2Narrator.ipcSeq = BG2Narrator.ipcSeq or 0
+BG2Narrator.ipcProfileSection = BG2Narrator.ipcProfileSection or "BG2Narrator"
+
+local function canUseIo()
+	return io ~= nil and io.open ~= nil
+end
+
+local function escapeIniValue(value)
+	local text = tostring(value)
+	text = text:gsub("%%", "%%%%")
+	return text:gsub("\\", function(char)
+		return "%" .. string.byte(char)
+	end)
+end
 
 local function safeString(value)
 	if value == nil then
@@ -59,8 +78,20 @@ local function safeString(value)
 	return ""
 end
 
+local function formatLogTimestamp()
+	if Infinity_GetClockTicks then
+		return tostring(math.floor(Infinity_GetClockTicks())) .. "ms"
+	end
+
+	if os and os.date then
+		return os.date("%Y-%m-%d %H:%M:%S")
+	end
+
+	return "t0"
+end
+
 function BG2Narrator.log(message)
-	local line = string.format("[%s] %s", os.date("%Y-%m-%d %H:%M:%S"), message)
+	local line = string.format("[%s] %s", formatLogTimestamp(), message)
 	print("[BG2Narrator] " .. message)
 
 	pcall(function()
@@ -77,7 +108,11 @@ local function nowSeconds()
 		return Infinity_GetClockTicks() / 1000
 	end
 
-	return os.time()
+	if os and os.time then
+		return os.time()
+	end
+
+	return 0
 end
 
 local function nowMillis()
@@ -85,7 +120,11 @@ local function nowMillis()
 		return math.floor(Infinity_GetClockTicks())
 	end
 
-	return os.time() * 1000
+	if os and os.time then
+		return os.time() * 1000
+	end
+
+	return 0
 end
 
 local function jsonEscape(value)
@@ -114,9 +153,7 @@ local function ensureEventsDirectory()
 	end)
 end
 
-function BG2Narrator.emitEvent(payload)
-	ensureEventsDirectory()
-
+local function encodeEventJson(payload)
 	local parts = {}
 	for key, value in pairs(payload) do
 		local encoded
@@ -130,18 +167,62 @@ function BG2Narrator.emitEvent(payload)
 		table.insert(parts, "\"" .. jsonEscape(key) .. "\":" .. encoded)
 	end
 
-	local line = "{" .. table.concat(parts, ",") .. "}"
-	local ok, err = pcall(function()
+	return "{" .. table.concat(parts, ",") .. "}"
+end
+
+local function emitEventViaJsonl(line)
+	ensureEventsDirectory()
+
+	local ok, wrote = pcall(function()
 		local file = io.open(BG2Narrator.eventsPath, "a")
 		if file then
 			file:write(line .. "\n")
 			file:close()
+			return true
 		end
+		return false
 	end)
 
 	if not ok then
-		BG2Narrator.log("ipc-error " .. tostring(err))
+		BG2Narrator.log("ipc-jsonl-error " .. tostring(wrote))
+		return false
 	end
+
+	return wrote == true
+end
+
+local function emitEventViaBaldurIni(line)
+	if Infinity_SetINIValue == nil then
+		return false
+	end
+
+	local ok, err = pcall(function()
+		BG2Narrator.ipcSeq = BG2Narrator.ipcSeq + 1
+		local slot = "Event" .. (BG2Narrator.ipcSeq % 8)
+		Infinity_SetINIValue(BG2Narrator.ipcProfileSection, slot, escapeIniValue(line))
+		Infinity_SetINIValue(BG2Narrator.ipcProfileSection, "LastSeq", tostring(BG2Narrator.ipcSeq))
+	end)
+
+	if not ok then
+		BG2Narrator.log("ipc-baldur-error " .. tostring(err))
+		return false
+	end
+
+	return true
+end
+
+function BG2Narrator.emitEvent(payload)
+	local line = encodeEventJson(payload)
+
+	if canUseIo() and emitEventViaJsonl(line) then
+		return
+	end
+
+	if emitEventViaBaldurIni(line) then
+		return
+	end
+
+	BG2Narrator.log("ipc-error no working backend (io and Baldur.lua IPC unavailable)")
 end
 
 function BG2Narrator.emitStop(reason)
@@ -522,13 +603,17 @@ EEex_GameState_AddInitializedListener(function()
 	restoreEeexMenuHooks()
 	BG2Narrator.log("loaded version " .. BG2Narrator.version)
 
-	pcall(function()
-		local file = io.open(BG2Narrator.eventsPath, "w")
-		if file then
-			file:close()
-		end
-	end)
-	BG2Narrator.log("cleared events file for new game session")
+	if canUseIo() then
+		pcall(function()
+			local file = io.open(BG2Narrator.eventsPath, "w")
+			if file then
+				file:close()
+			end
+		end)
+		BG2Narrator.log("ipc backend: events.jsonl")
+	else
+		BG2Narrator.log("ipc backend: Baldur.lua (EEex v1.0.0 has no Lua io library)")
+	end
 
 	if EEex_Action_AddSpriteStartedActionListener then
 		EEex_Action_AddSpriteStartedActionListener(logStartedAction)
